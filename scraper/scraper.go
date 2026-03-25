@@ -2,17 +2,19 @@ package main
 
 import (
 	"context"
-	"os"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/go-shiori/go-readability"
 	"github.com/gocolly/colly"
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 )
+
 func initDatabase(db *pgx.Conn) error {
-    query := `
+	query := `
     CREATE TABLE IF NOT EXISTS scraped_pages (
         id SERIAL PRIMARY KEY,
         url TEXT UNIQUE NOT NULL,
@@ -21,17 +23,17 @@ func initDatabase(db *pgx.Conn) error {
         is_summarized BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );`
-    
-    _, err := db.Exec(context.Background(), query)
-    return err
+
+	_, err := db.Exec(context.Background(), query)
+	return err
 }
 func main() {
 	// --- DATABASE SETUP ---
 	ctx := context.Background()
 	connStr := os.Getenv("DB_URL")
 	if connStr == "" {
-        connStr = "postgres://postgres:abc@123@localhost:5433/web-scraper"
-    }
+		connStr = "postgres://postgres:abc@123@localhost:5433/web-scraper"
+	}
 	conn, err := pgx.Connect(ctx, connStr)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
@@ -41,12 +43,17 @@ func main() {
 	// ... after connecting to the DB ...
 	err = initDatabase(conn)
 	if err != nil {
-	log.Fatalf("Could not create tables: %v", err)
+		log.Fatalf("Could not create tables: %v", err)
 	}
 	log.Println("✅ Database tables are ready!")
+	rdb := redis.NewClient(&redis.Options{
+		Addr: os.Getenv("REDIS_ADDR"), // Redis server address
+	})
+
 	urls := []string{
-		"https://www.livemint.com/news/world/what-to-know-about-ras-laffan-industrial-city-how-irans-missile-attack-on-key-lng-hub-may-cripple-india-11773901984857.html",
-		"https://www.aljazeera.com/news/2026/3/23/un-expert-says-world-has-given-israel-licence-to-torture-palestinians"}
+		"https://www.livemint.com/news/india/cabinet-extends-ivfrt-scheme-for-5-years-to-boost-immigration-and-visa-processing-details-here-11774441356146.html",
+		"https://www.aljazeera.com/features/2026/3/25/amid-us-israeli-attacks-people-in-iran-struggle-to-survive-ailing-economy",
+		"https://www.aljazeera.com/sports/2026/3/24/when-are-uefas-world-cup-2026-playoffs-and-which-nations-are-involved"}
 
 	c := colly.NewCollector()
 
@@ -74,21 +81,33 @@ func main() {
 
 		fmt.Println("TITLE:", article.Title)
 		fmt.Println("CONTENT PREVIEW:", article.TextContent)
+		var lastInsertedID int
 		query := `
 			INSERT INTO scraped_pages (url, raw_content, is_summarized) 
 			VALUES ($1, $2, $3)
-			ON CONFLICT (url) DO NOTHING;`
+			ON CONFLICT (url) DO NOTHING
+			RETURNING id;`
 
-		_, err = conn.Exec(ctx, query,
+		err = conn.QueryRow(ctx, query,
 			r.Request.URL.String(), // $1
 			article.TextContent,    // $2
 			false,                  // $3 (Default state)
-		)
+		).Scan(&lastInsertedID)
 
 		if err != nil {
-			fmt.Printf("Database error: %v\n", err)
+			// If the error is 'no rows in result set', it just means ON CONFLICT happened
+			if err == pgx.ErrNoRows {
+				fmt.Println("⏭️ Skipping Redis: URL already exists in database.")
+			} else {
+				fmt.Printf("❌ Database error: %v\n", err)
+			}
+			return
+		}
+		err = rdb.LPush(ctx, "scrape_tasks", lastInsertedID).Err()
+		if err != nil {
+			log.Printf("⚠️ Redis Queue Error: %v", err)
 		} else {
-			fmt.Printf("Successfully saved: %s\n", article.Title)
+			fmt.Printf("🚀 Successfully saved & queued ID: %d\n", lastInsertedID)
 		}
 	})
 
