@@ -1,0 +1,36 @@
+services:
+  # 1. The Warehouse (Database)
+  db:
+    image: postgres:16
+    env_file: .env
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # 2. The Brain (AI Engine)
+  ollama:
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_storage:/root/.ollama
+
+  # 3. The Producer (Scraper)
+  scraper-service:
+    build: ./scraper
+    env_file: .env
+    depends_on:
+      - db
+
+  # 4. The Consumer (Summarizer)
+  summarizer-service:
+    build: ./summarizer
+    env_file: .env
+    depends_on:
+      - db
+      - ollama
+
+volumes:
+  postgres_data:
+  ollama_storage:

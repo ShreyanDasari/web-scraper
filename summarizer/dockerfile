@@ -1,0 +1,17 @@
+# Stage 1: The Builder (Compiles your code)
+FROM golang:1.26-alpine AS builder
+WORKDIR /app
+# Copy the dependency files first (for faster caching)
+COPY go.mod go.sum ./
+RUN go mod download
+# Copy the rest of the source code
+COPY . .
+# Build the app into a binary named 'app-exec'
+RUN go build -o app-exec .
+
+# Stage 2: The Runner (Tiny image for production)
+FROM alpine:latest
+WORKDIR /root/
+COPY --from=builder /app/app-exec .
+# Start the app
+CMD ["./app-exec"]

@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"fmt"
 	"log"
 	"time" // Added for the sleep timer
@@ -13,8 +14,10 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// 1. Connect to DB (OUTSIDE the loop - only do this once!)
-	connStr := "postgres://postgres:abc@123@localhost:5433/web-scraper"
+	connStr := os.Getenv("DB_URL")
+	if connStr == "" {
+        connStr = "postgres://postgres:abc@123@localhost:5433/web-scraper"
+    }
 	db, err := pgx.Connect(ctx, connStr)
 	if err != nil {
 		log.Fatal("DB Connection failed:", err)

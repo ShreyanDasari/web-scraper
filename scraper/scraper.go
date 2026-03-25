@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"fmt"
 	"log"
 	"strings"
@@ -10,17 +11,39 @@ import (
 	"github.com/gocolly/colly"
 	"github.com/jackc/pgx/v5"
 )
-
+func initDatabase(db *pgx.Conn) error {
+    query := `
+    CREATE TABLE IF NOT EXISTS scraped_pages (
+        id SERIAL PRIMARY KEY,
+        url TEXT UNIQUE NOT NULL,
+        raw_content TEXT,
+        summary TEXT,
+        is_summarized BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );`
+    
+    _, err := db.Exec(context.Background(), query)
+    return err
+}
 func main() {
 	// --- DATABASE SETUP ---
 	ctx := context.Background()
-	connStr := "postgres://postgres:abc@123@localhost:5433/web-scraper"
+	connStr := os.Getenv("DB_URL")
+	if connStr == "" {
+        connStr = "postgres://postgres:abc@123@localhost:5433/web-scraper"
+    }
 	conn, err := pgx.Connect(ctx, connStr)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v\n", err)
 	}
 	defer conn.Close(ctx) // Closes connection when main() finishes
 	// 1. Define a list of URLs to scrape
+	// ... after connecting to the DB ...
+	err = initDatabase(conn)
+	if err != nil {
+	log.Fatalf("Could not create tables: %v", err)
+	}
+	log.Println("✅ Database tables are ready!")
 	urls := []string{
 		"https://www.livemint.com/news/world/what-to-know-about-ras-laffan-industrial-city-how-irans-missile-attack-on-key-lng-hub-may-cripple-india-11773901984857.html",
 		"https://www.aljazeera.com/news/2026/3/23/un-expert-says-world-has-given-israel-licence-to-torture-palestinians"}
