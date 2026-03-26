@@ -18,8 +18,9 @@ cd web-scraper
 Create the .env file
 ```
 touch .env
-
-# Open it in your editor (or use 'nano .env')
+```
+Open it in your editor (or use 'nano .env')
+```
 # Add these exact lines:
 DB_URL=postgres://user:password@db:5432/scraper_db
 REDIS_URL=redis:6379
