@@ -24,6 +24,9 @@ touch .env
 DB_URL=postgres://user:password@db:5432/scraper_db
 REDIS_URL=redis:6379
 OLLAMA_URL=http://host.docker.internal:11434
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=scraper_db
 ```
 ## 📦 2. Launch the Infrastructure
 Use Docker Compose to build and start the PostgreSQL database, Redis broker, and the Go services:
