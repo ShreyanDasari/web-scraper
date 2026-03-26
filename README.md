@@ -23,7 +23,7 @@ touch .env
 # Add these exact lines:
 DB_URL=postgres://user:password@db:5432/scraper_db
 REDIS_URL=redis:6379
-OLLAMA_URL=http://host.docker.internal:11434
+OLLAMA_HOST=http://host.docker.internal:11434
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
 POSTGRES_DB=scraper_db
