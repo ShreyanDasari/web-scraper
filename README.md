@@ -14,7 +14,16 @@ Clone the repository and create your .env file from the template:
 ```bash
 git clone https://github.com/ShreyanDasari/web-scraper.git
 cd web-scraper
-cp .env.example .env
+```
+Create the .env file
+```
+touch .env
+
+# Open it in your editor (or use 'nano .env')
+# Add these exact lines:
+DB_URL=postgres://user:password@db:5432/scraper_db
+REDIS_URL=redis:6379
+OLLAMA_URL=http://host.docker.internal:11434
 ```
 ## 📦 2. Launch the Infrastructure
 Use Docker Compose to build and start the PostgreSQL database, Redis broker, and the Go services:
